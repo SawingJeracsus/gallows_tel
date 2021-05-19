@@ -1,0 +1,28 @@
+{
+  "name": "gallows_tel",
+  "version": "1.0.0",
+  "description": "That is clasic gallows game? but now in telegram",
+  "main": "index.js",
+  "scripts": {
+	 "start": "nodemon ./dist/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SawingJeracsus/gallows_tel.git"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "gallows"
+  ],
+  "author": "Sawinjer <polisukandrij68@gmail.com>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/SawingJeracsus/gallows_tel/issues"
+  },
+  "homepage": "https://github.com/SawingJeracsus/gallows_tel#readme",
+  "devDependencies": {
+    "nodemon": "^2.0.7"
+  }
+}
