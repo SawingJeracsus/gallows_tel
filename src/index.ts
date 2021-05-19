@@ -5,6 +5,7 @@ import path from 'path'
 import Dictionary from './dictionary'
 
 dotenv.config()
+
 if(!process.env.BOT_TOKEN){
     console.error("Discord token is not defined!")
     process.exit()
@@ -37,8 +38,6 @@ class DiscordUser{
     public state: UserState = {}
     constructor(
         public readonly Discord_id: string,
-        public readonly firstName: string,
-        public readonly lastName: string,
         public readonly userName: string,
     ){}
 }
@@ -66,8 +65,8 @@ class UseresColection{
             return user
         })
     }
-    getState(tel_id: string){
-        this.users.filter( user => user.Discord_id === tel_id)[0] || false
+    getState(tel_id: string): UserState{
+        return this.users.filter( user => user.Discord_id === tel_id)[0] || false
     }
 }
 
@@ -82,17 +81,31 @@ client.on('ready', () => {
 })
 
 client.on('message', msg => {
-    // msg.
-//   const command = msg.content.split('/')[1] || false
-//   if(!command){
-//       return
-//   }
+    const isNewUser = UsersManager.softPush(new DiscordUser(
+        msg.author.id,
+        msg.author.username
+    ))
 
-//   switch(command){
-//       case 'start':
-//         msg.reply(Dictionary.getWord())    
-//       break;
-//   }
+    const CurrentState = UsersManager.getState(msg.author.id) || {}
+    const command = msg.content.split('/')[1] || false
+    if(!command){
+        return
+    }
+
+    switch(command){
+        case 'start':
+          if(CurrentState?.isGameGoing === false){
+            const newWord = Dictionary.getWord()
+            const initialOpenedChar = Math.ceil(Math.random() * newWord.length)
+            UsersManager.setState(msg.author.id, (prev) => ({...prev, word: newWord, openedChars: [initialOpenedChar]}))
+            msg.reply('asd')    
+          }else{
+              
+          }
+            
+          msg.reply('asd')    
+        break;
+    }
 });
 
 client.login(process.env.BOT_TOKEN)
