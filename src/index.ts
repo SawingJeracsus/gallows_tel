@@ -1,4 +1,3 @@
-import {Telegraf} from 'telegraf'
 import dotenv from 'dotenv'
 import fs from 'fs'
 import path from 'path'
@@ -8,7 +7,6 @@ if(!process.env.BOT_TOKEN){
     console.error("Telegram token is not defined!")
     process.exit()
 }
-const bot = new Telegraf(process.env.BOT_TOKEN)
 
 type UserState = {[key: string]: any}
 class Dumb{
@@ -73,18 +71,3 @@ class UseresColection{
 
 const UsersManager = new UseresColection(dumb.getDumb())
 
-bot.start((ctx) => {
-    const isUserNew = UsersManager.softPush(new TelegramUser(
-        ctx.from.id.toString(),
-        ctx.from.first_name,
-        ctx.from.last_name || '',
-        ctx.from.username || '',
-    ))
-    console.log(isUserNew);
-    
-    ctx.reply('Here we go again')
-})
-//
-bot.launch().catch((err) => {
-    console.log(err);  
-})
