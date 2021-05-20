@@ -3,6 +3,7 @@ import dotenv from 'dotenv'
 import fs from 'fs'
 import path from 'path'
 import Dictionary from './dictionary'
+import {Game, Word} from './game'
 
 dotenv.config()
 
@@ -11,7 +12,7 @@ if(!process.env.BOT_TOKEN){
     process.exit()
 }
 
-type UserState = {[key: string]: any}
+type UserState = {[key: string]: any, isGameGoing: boolean, word: Word}
 
 class Dumb{
     static readonly path = path.join(__dirname, '../', 'dumb.json')
@@ -35,7 +36,10 @@ class Dumb{
 }
 
 class DiscordUser{
-    public state: UserState = {}
+    public state: UserState = {
+        isGameGoing: false,
+        word: new Word('', [])
+    }
     constructor(
         public readonly Discord_id: string,
         public readonly userName: string,
@@ -66,7 +70,7 @@ class UseresColection{
         })
     }
     getState(tel_id: string): UserState{
-        return this.users.filter( user => user.Discord_id === tel_id)[0] || false
+        return this.users.filter( user => user.Discord_id === tel_id)[0].state || false
     }
 }
 
@@ -75,6 +79,8 @@ const UsersManager = new UseresColection(dumb.getDumb())
 
 
 const client = new Discord.Client()
+const GameEngine = new Game()
+
 client.on('ready', () => {
     console.log(`Logged in as ${client.user?.tag}`);
     
@@ -87,23 +93,41 @@ client.on('message', msg => {
     ))
 
     const CurrentState = UsersManager.getState(msg.author.id) || {}
-    const command = msg.content.split('/')[1] || false
+    const command = msg.content.split('/')[1].split(' ')[0] || false
     if(!command){
         return
     }
-
+    const args = msg.content.split('/')[1].split(' ')[0] || []
     switch(command){
         case 'start':
-          if(CurrentState?.isGameGoing === false){
-            const newWord = Dictionary.getWord()
-            const initialOpenedChar = Math.ceil(Math.random() * newWord.length)
-            UsersManager.setState(msg.author.id, (prev) => ({...prev, word: newWord, openedChars: [initialOpenedChar]}))
-            msg.reply('asd')    
+          if(CurrentState.isGameGoing === false){
+            const newWord =  GameEngine.createWord(Dictionary.getWord())
+
+            UsersManager.setState(msg.author.id, (prev) => ({...prev, word: newWord, isGameGoing: true}))
+            msg.guild?.channels.create('Гра Шибинеця [TEMP]', {
+                type: 'text',
+                permissionOverwrites: [
+                    {
+                        id: msg.author.id,
+                        allow: ["VIEW_CHANNEL", "SEND_MESSAGES", "READ_MESSAGE_HISTORY"]
+                    }
+                ]
+            }).then((Chanel) => {
+                Chanel.send("Гра буде іти тут! Прошу перейти у цей канал!")
+                UsersManager.setState(msg.author.id, (prev) => ({...prev, chanelID: Chanel.id}))
+            })
           }else{
-              
+            msg.reply("Ви уже запустили гру!")  
           }
-            
-          msg.reply('asd')    
+        break;
+        case 'g':
+            try {
+                const word = GameEngine.openLetter(Word.from(CurrentState.word), args[0])   
+                UsersManager.setState(msg.author.id, (prev) => ({...prev, word}))
+                msg.reply(word.text)             
+            } catch (error) {
+                msg.reply('Ви ввели некоректні дані або ж даної букви немає у слові!')   
+            }
         break;
     }
 });
