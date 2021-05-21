@@ -18,10 +18,13 @@ export class Word {
             if(this.oppenedLetters.includes(i)){
                 word.push(chr)
             }else{
-                word.push('*')
+                word.push('#')
             }
         })
         return word.join('')
+    }
+    get isOppened() {
+        return this.oppenedLetters.length === this.chars.length
     }
 }
 export class Game {

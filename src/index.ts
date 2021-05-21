@@ -93,11 +93,15 @@ client.on('message', msg => {
     ))
 
     const CurrentState = UsersManager.getState(msg.author.id) || {}
-    const command = msg.content.split('/')[1].split(' ')[0] || false
+    
+    const commandWithArgs = msg.content.split('/')
+    const command = commandWithArgs.length > 1 ? commandWithArgs[1].split(' ')[0] : commandWithArgs      
+    const args = commandWithArgs.length > 1 ? commandWithArgs[1].split(' ').filter((_1, i) => i !== 0) : []      
+    
     if(!command){
         return
     }
-    const args = msg.content.split('/')[1].split(' ')[0] || []
+    
     switch(command){
         case 'start':
           if(CurrentState.isGameGoing === false){
@@ -117,13 +121,20 @@ client.on('message', msg => {
                 UsersManager.setState(msg.author.id, (prev) => ({...prev, chanelID: Chanel.id}))
             })
           }else{
-            msg.reply("Ви уже запустили гру!")  
+            msg.reply("Ви уже запустили гру!")  //
           }
         break;
         case 'g':
             try {
                 const word = GameEngine.openLetter(Word.from(CurrentState.word), args[0])   
-                UsersManager.setState(msg.author.id, (prev) => ({...prev, word}))
+                UsersManager.setState(msg.author.id, (prev) => ({...prev, word, isGameGoing: word.isOppened}))
+                if(word.isOppened){
+                    msg.reply("Ура! Ви відкрили слово повністю! Це було - "+word.text)
+                    setTimeout(() => {
+                        msg.guild?.channels.cache.get(CurrentState.chanelID)?.delete()
+                    }, 2000)
+                    return
+                }
                 msg.reply(word.text)             
             } catch (error) {
                 msg.reply('Ви ввели некоректні дані або ж даної букви немає у слові!')   
