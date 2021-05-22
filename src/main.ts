@@ -155,7 +155,7 @@ export class GallowsBotInterface{
                 }).then((Chanel) => {
                     GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.CHANEL_CREATED, CurrentUser, CurrentState)
                     Chanel.send("Игра будет происходить в этом канале!")
-                    Chanel.send("Длина слова - "+CurrentState.word.chars.length)
+                    Chanel.send("Длина слова - "+newWord.chars.length)
                     if(isNewUser){
                         Chanel.send("АБОБА НАПИСАЛ ПРАВИЛА ИГРЫ(ВСЕ В ШОКЕ)!!!")//rules here
                     }
