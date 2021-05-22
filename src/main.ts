@@ -132,17 +132,19 @@ export class GallowsBotInterface{
         const args = commandWithArgs.length > 1 ? commandWithArgs[1].split(' ').filter((_1, i) => i !== 0) : []      
         
         if(!command){
+            // if()
             return
         }
 
         switch(command){
             case 'start':
+            msg.delete()
             GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.START, CurrentUser, CurrentState)
             
             if(CurrentState.isGameGoing === false){
                 const newWord =  GameEngine.createWord(Dictionary.getWord())
                 UsersManager.setState(msg.author.id, (prev) => ({...prev, word: newWord, isGameGoing: true, lifes: 7}))
-                msg.guild?.channels.create('Гра Шибинеця [TEMP]', {
+                msg.guild?.channels.create(`Гра Шибинеця [${CurrentUser.userName}]`, {
                     type: 'text',
                     permissionOverwrites: [
                         {
@@ -153,6 +155,10 @@ export class GallowsBotInterface{
                 }).then((Chanel) => {
                     GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.CHANEL_CREATED, CurrentUser, CurrentState)
                     Chanel.send("Гра буде іти тут! Прошу перейти у цей канал!")
+                    Chanel.send("Довжина слова - "+CurrentState.word.chars.length)
+                    if(isNewUser){
+                        Chanel.send("Типу правила!!!")//                                                                                                rules here
+                    }
                     UsersManager.setState(msg.author.id, (prev) => ({...prev, chanelID: Chanel.id}))
                 })
               }else{
