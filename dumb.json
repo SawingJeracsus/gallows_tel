@@ -1,1 +1,1 @@
-[{"Discord_id":"428955100476866560","userName":"SUS","state":{"isGameGoing":false}},{"Discord_id":"835887146941677608","userName":"TESTIK","state":{"isGameGoing":false}}]
+[{"Discord_id":"428955100476866560","userName":"SUS","state":{"isGameGoing":false,"word":{"word":"аб","oppenedLetters":[0],"chars":["а","б"]},"lifes":1,"chanelID":"845620432261742622"}},{"Discord_id":"835887146941677608","userName":"TESTIK","state":{"isGameGoing":false,"word":{"word":"","oppenedLetters":[],"chars":[]},"lifes":7}}]

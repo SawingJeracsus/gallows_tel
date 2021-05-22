@@ -2,6 +2,7 @@ import Discord, { User } from 'discord.js'
 import dotenv from 'dotenv'
 import fs from 'fs'
 import path from 'path'
+import { animation } from './animation'
 import Dictionary from './dictionary'
 import {Game, Word} from './game'
 
@@ -12,7 +13,7 @@ if(!process.env.BOT_TOKEN){
     process.exit()
 }
 
-type UserState = {[key: string]: any, isGameGoing: boolean, word: Word}
+type UserState = {[key: string]: any, isGameGoing: boolean, word: Word, lifes: number}
 
 class Dumb{
     static readonly path = path.join(__dirname, '../', 'dumb.json')
@@ -38,21 +39,23 @@ class Dumb{
 class DiscordUser{
     public state: UserState = {
         isGameGoing: false,
-        word: new Word('', [])
+        word: new Word('', []),
+        lifes: 7
     }
     constructor(
         public readonly Discord_id: string,
         public readonly userName: string,
     ){}
 }
-const dumb = new Dumb()
+
 class UseresColection{
     constructor(
-        private users: DiscordUser[]
+        private users: DiscordUser[],
+        private DumbManager: Dumb
     ){}
     private push(user: DiscordUser){
         this.users.push(user)
-        dumb.setDumb(this.users)        
+        this.DumbManager.setDumb(this.users)        
     }
     public softPush(newUser: DiscordUser): boolean{
         const isUserNew = this.users.filter(user => user.Discord_id === newUser.Discord_id).length === 0
@@ -68,6 +71,7 @@ class UseresColection{
             }
             return user
         })
+        this.DumbManager.setDumb(this.users)
     }
     getState(tel_id: string): UserState{
         return this.users.filter( user => user.Discord_id === tel_id)[0].state || false
@@ -101,8 +105,8 @@ export class GallowsBotInterface{
         }
     }
     static start(){
-        
-    const UsersManager = new UseresColection(dumb.getDumb())
+    const dumb = new Dumb()    
+    const UsersManager = new UseresColection(dumb.getDumb(), dumb)
         
         
     const client = new Discord.Client()
@@ -137,8 +141,7 @@ export class GallowsBotInterface{
             
             if(CurrentState.isGameGoing === false){
                 const newWord =  GameEngine.createWord(Dictionary.getWord())
-
-                UsersManager.setState(msg.author.id, (prev) => ({...prev, word: newWord, isGameGoing: true}))
+                UsersManager.setState(msg.author.id, (prev) => ({...prev, word: newWord, isGameGoing: true, lifes: 7}))
                 msg.guild?.channels.create('Гра Шибинеця [TEMP]', {
                     type: 'text',
                     permissionOverwrites: [
@@ -160,7 +163,7 @@ export class GallowsBotInterface{
                 GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.GUESS, CurrentUser, CurrentState)
                 try {
                     const word = GameEngine.openLetter(Word.from(CurrentState.word), args[0])   
-                    UsersManager.setState(msg.author.id, (prev) => ({...prev, word, isGameGoing: word.isOppened}))
+                    UsersManager.setState(msg.author.id, (prev) => ({...prev, word, isGameGoing: !word.isOppened, lifes: CurrentState.lifes + 1 > 7 ? 7 : CurrentState.lifes + 1}))
                     if(word.isOppened){
                         GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.WON, CurrentUser, CurrentState)
                         msg.reply("Ура! Ви відкрили слово повністю! Це було - "+word.text)
@@ -171,8 +174,22 @@ export class GallowsBotInterface{
                         return
                     }
                     msg.reply(word.text)             
-                } catch (error) {
-                    msg.reply('Ви ввели некоректні дані або ж даної букви немає у слові!')   
+                } catch (error) { 
+                    if(CurrentState.lifes > 1){
+                        UsersManager.setState(CurrentUser.Discord_id, (prev) => ({...prev, lifes: CurrentState.lifes - 1}))
+                        
+                        msg.reply(`
+${animation[CurrentState.lifes - 1]}
+Даної літери немає у слові! Лишилось житів - ${CurrentState.lifes - 1}`) 
+                    }else{
+                        GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.LOSE, CurrentUser, CurrentState)
+                        msg.reply('Ви програли!Загаданим словом було слово "'+CurrentState.word.word+'"')
+                        UsersManager.setState(msg.author.id, (prev) => ({...prev, isGameGoing: false}))
+                        setTimeout(() => {
+                            msg.guild?.channels.cache.get(CurrentState.chanelID)?.delete()
+                            GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.CHANEL_DELETED, CurrentUser, CurrentState)
+                        }, 2000)
+                    }
                 }
             break;
         }

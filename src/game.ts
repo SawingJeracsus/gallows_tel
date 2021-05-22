@@ -10,7 +10,7 @@ export class Word {
         this.chars = this.word.split('') || []
     }
     appendNewChars(chars: number[]){
-        this.oppenedLetters = this.oppenedLetters.concat(chars)
+        this.oppenedLetters = Array.from(new Set(this.oppenedLetters.concat(chars))) 
     }
     get text(): string{
         const word: string[] = []
@@ -44,3 +44,5 @@ export class Game {
     }
     createWord(text: string) {return new Word(text, [])}
 }
+
+
