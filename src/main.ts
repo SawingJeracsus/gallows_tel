@@ -6,7 +6,7 @@ import { animation } from './animation'
 import Dictionary from './dictionary'
 import {Game, Word} from './game'
 
-dotenv.config()
+dotenv.config({path:"../.env"})
 
 if(!process.env.BOT_TOKEN){
     console.error("Discord token is not defined!")
@@ -144,7 +144,7 @@ export class GallowsBotInterface{
             if(CurrentState.isGameGoing === false){
                 const newWord =  GameEngine.createWord(Dictionary.getWord())
                 UsersManager.setState(msg.author.id, (prev) => ({...prev, word: newWord, isGameGoing: true, lifes: 7}))
-                msg.guild?.channels.create(`Гра Шибинеця [${CurrentUser.userName}]`, {
+                msg.guild?.channels.create(`Игра виселица [${CurrentUser.userName}]`, {
                     type: 'text',
                     permissionOverwrites: [
                         {
@@ -154,15 +154,15 @@ export class GallowsBotInterface{
                     ]
                 }).then((Chanel) => {
                     GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.CHANEL_CREATED, CurrentUser, CurrentState)
-                    Chanel.send("Гра буде іти тут! Прошу перейти у цей канал!")
-                    Chanel.send("Довжина слова - "+CurrentState.word.chars.length)
+                    Chanel.send("Игра будет происходить в этом канале!")
+                    Chanel.send("Длина слова - "+CurrentState.word.chars.length)
                     if(isNewUser){
-                        Chanel.send("Типу правила!!!")//                                                                                                rules here
+                        Chanel.send("АБОБА НАПИСАЛ ПРАВИЛА ИГРЫ(ВСЕ В ШОКЕ)!!!")//rules here
                     }
                     UsersManager.setState(msg.author.id, (prev) => ({...prev, chanelID: Chanel.id}))
                 })
               }else{
-                msg.reply("Ви уже запустили гру!")  //
+                msg.reply("Вы уже запустили игру!")  //
               }
             break;
             case 'g':
@@ -172,7 +172,7 @@ export class GallowsBotInterface{
                     UsersManager.setState(msg.author.id, (prev) => ({...prev, word, isGameGoing: !word.isOppened, lifes: CurrentState.lifes + 1 > 7 ? 7 : CurrentState.lifes + 1}))
                     if(word.isOppened){
                         GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.WON, CurrentUser, CurrentState)
-                        msg.reply("Ура! Ви відкрили слово повністю! Це було - "+word.text)
+                        msg.reply("Вы угадали слово это: - "+word.text)
                         setTimeout(() => {
                             msg.guild?.channels.cache.get(CurrentState.chanelID)?.delete()
                             GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.CHANEL_DELETED, CurrentUser, CurrentState)
@@ -186,10 +186,10 @@ export class GallowsBotInterface{
                         
                         msg.reply(`
 ${animation[CurrentState.lifes - 1]}
-Даної літери немає у слові! Лишилось житів - ${CurrentState.lifes - 1}`) 
+Этой буквы нету. Осталось жизней! - ${CurrentState.lifes - 1}`) 
                     }else{
                         GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.LOSE, CurrentUser, CurrentState)
-                        msg.reply('Ви програли!Загаданим словом було слово "'+CurrentState.word.word+'"')
+                        msg.reply('Вы проиграли! Это было слово! "'+CurrentState.word.word+'"')
                         UsersManager.setState(msg.author.id, (prev) => ({...prev, isGameGoing: false}))
                         setTimeout(() => {
                             msg.guild?.channels.cache.get(CurrentState.chanelID)?.delete()
