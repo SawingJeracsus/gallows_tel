@@ -1,4 +1,4 @@
-import Discord, { User } from 'discord.js'
+import Discord, { User, UserManager } from 'discord.js'
 import dotenv from 'dotenv'
 import fs from 'fs'
 import path from 'path'
@@ -13,7 +13,7 @@ if(!process.env.BOT_TOKEN){
     process.exit()
 }
 
-type UserState = {[key: string]: any, isGameGoing: boolean, word: Word, lifes: number}
+type UserState = {[key: string]: any, isGameGoing: boolean, word: Word, lifes: number, lastActive: Date}
 
 class Dumb{
     static readonly path = path.join(__dirname, '../', 'dumb.json')
@@ -40,7 +40,8 @@ class DiscordUser{
     public state: UserState = {
         isGameGoing: false,
         word: new Word('', []),
-        lifes: 7
+        lifes: 7,
+        lastActive: new Date()
     }
     constructor(
         public readonly Discord_id: string,
@@ -63,6 +64,10 @@ class UseresColection{
             this.push(newUser)
         }
         return isUserNew
+    }
+    getUsersByParram(param: keyof UserState, value: any): DiscordUser[]{
+        const result = this.users.filter(user => this.getState(user.Discord_id)[param] === value)
+        return result || []
     }
     setState(tel_id: string, callback: (prev: UserState) => UserState){
         this.users.map(user => {
@@ -104,10 +109,29 @@ export class GallowsBotInterface{
             })
         }
     }
+    static startDeamon(ms: number, UsersManager: UseresColection, msg: Discord.Message){
+        setInterval(() => {
+            const activeUsers = UsersManager.getUsersByParram('isGameGoing', true)
+            activeUsers.map(user => {
+                const state = UsersManager.getState(user.Discord_id)
+                const timeDelta = (new Date().getTime() - new Date(state.lastActive).getTime())/1000 
+                
+                if(timeDelta > 180){
+                    //неактивний уже 180 секунд
+                    msg.guild?.channels.cache.get(state.chanelID)?.delete()
+                    GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.CHANEL_DELETED, user, state)
+                    GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.LOSE, user, state)
+                    UsersManager.setState(msg.author.id, (prev) => ({...prev, isGameGoing: false}))
+                    console.log(`${user.userName} game was deleted (time has expired)`);
+                    
+                }
+
+            })
+        }, ms)  
+    }
     static start(){
     const dumb = new Dumb()    
     const UsersManager = new UseresColection(dumb.getDumb(), dumb)
-        
         
     const client = new Discord.Client()
     const GameEngine = new Game()
@@ -120,13 +144,14 @@ export class GallowsBotInterface{
         //@ts-ignore
         if(msg.author.id === client.user.id && client) return
         
+        this.startDeamon(2000, UsersManager, msg)    
         
         const CurrentUser = new DiscordUser(
             msg.author.id,
             msg.author.username
         )
         const isNewUser = UsersManager.softPush(CurrentUser)
-        
+        UsersManager.setState(CurrentUser.Discord_id, (prev) => ({...prev, lastActive: new Date()}))
         const CurrentState = UsersManager.getState(msg.author.id) || {}
         
         GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.MESSAGE, CurrentUser, CurrentState)
