@@ -1,10 +1,11 @@
-import Discord, { User, UserManager } from 'discord.js'
+import Discord, { Client, DiscordAPIError, MessageEmbed, User, UserManager } from 'discord.js'
 import dotenv from 'dotenv'
 import fs from 'fs'
 import path from 'path'
 import { animation } from './animation'
 import Dictionary from './dictionary'
 import {Game, Word} from './game'
+import { HamsterCoinScema } from './Scemas/scema'
 
 dotenv.config()
 
@@ -12,8 +13,7 @@ if(!process.env.BOT_TOKEN){
     console.error("Discord token is not defined!")
     process.exit()
 }
-
-type UserState = {[key: string]: any, isGameGoing: boolean, word: Word, lifes: number, lastActive: Date}
+type UserState = {[key: string]: any, isGameGoing: boolean, word: Word, lifes: number, lastActive: Date, message: string}
 
 class Dumb{
     static readonly path = path.join(__dirname, '../', 'dumb.json')
@@ -41,7 +41,8 @@ class DiscordUser{
         isGameGoing: false,
         word: new Word('', []),
         lifes: 7,
-        lastActive: new Date()
+        lastActive: new Date(),
+        message: ''
     }
     constructor(
         public readonly Discord_id: string,
@@ -93,10 +94,12 @@ enum EVENTS {
     LOSE = 'LOSE'
 }
 type GallowBotEvent = 'START' | 'GUESS' | 'CHANEL_CREATED' | 'CHANEL_DELETED' | 'MESSAGE' | 'WON' | 'LOSE'
-type GallowClaback = (user: DiscordUser, state: UserState) => void
+type GallowClaback = (user: DiscordUser, state: UserState, client? : Discord.Client) => void
 
 export class GallowsBotInterface{
     private static subcribers: {[key: string]: GallowClaback[]} = {}
+    private static client: Discord.Client | undefined
+
     static EVENTS = EVENTS
     static subscribe(event: GallowsBotInterface, callback: GallowClaback){
         //@ts-ignore
@@ -105,7 +108,7 @@ export class GallowsBotInterface{
     static dispatch(event: GallowBotEvent, user: DiscordUser, state: UserState){
         if(this.subcribers[event]){
             this.subcribers[event].forEach((callback) => {
-                callback(user, state)
+                this.client ? callback(user, state, this.client) : callback(user, state) 
             })
         }
     }
@@ -135,12 +138,22 @@ export class GallowsBotInterface{
         
     const client = new Discord.Client()
     const GameEngine = new Game()
-        
+     
     client.on('ready', () => {
         console.log(`Logged in as ${client.user?.tag}`);
     })
     
-    client.on('message', msg => {
+    client.on('message', async msg => {
+        if(!msg?.member?.id){
+            return
+        }
+
+        const DBUser = await HamsterCoinScema.findOne({id: msg.member.id})
+        
+        
+        if(msg.channel.id !== process.env.CHANEL){
+            return
+        }
         //@ts-ignore
         if(msg.author.id === client.user.id && client) return
         
@@ -151,7 +164,7 @@ export class GallowsBotInterface{
             msg.author.username
         )
         const isNewUser = UsersManager.softPush(CurrentUser)
-        UsersManager.setState(CurrentUser.Discord_id, (prev) => ({...prev, lastActive: new Date()}))
+        UsersManager.setState(CurrentUser.Discord_id, (prev) => ({...prev, lastActive: new Date(), message: msg.content}))
         const CurrentState = UsersManager.getState(msg.author.id) || {}
         
         GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.MESSAGE, CurrentUser, CurrentState)
@@ -173,6 +186,7 @@ export class GallowsBotInterface{
                 if(word.isOppened){
                     GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.WON, CurrentUser, CurrentState)
                     msg.reply("Вы угадали слово это: - "+word.text)
+
                     setTimeout(() => {
                         msg.guild?.channels.cache.get(CurrentState.chanelID)?.delete()
                         GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.CHANEL_DELETED, CurrentUser, CurrentState)
@@ -205,11 +219,51 @@ ${animation[CurrentState.lifes - 1]}
             return
         }
         
+        
         // if()
         switch(command){
             case 'start':
             msg.delete()
+            let bet = 0
+
+            try {
+                bet = parseInt(args[0])
+            } catch (error) {
+                msg.reply("Указаний параметр не являеться числом");
+                return
+            }
+
+            if (bet < 1) {
+                msg.reply("Укажите значение больше 0");
+                console.log(msg.member.id);
+                return;
+              }
+  
+              if (!args[0]) {
+                msg.reply("Укажите сумму для начала");
+                return;
+              }
+  
+             
+              if (!DBUser) {
+                msg.reply(
+                  "Вы не зарегистрированы в базе! \n Используйте: /register"
+                );
+                return;
+              }
+              if (DBUser.balance < args[0]){
+                msg.reply("У вас не хватает средств!");
+                return 
+              }
             
+            await HamsterCoinScema.findOneAndUpdate({
+                id: msg.author.id,
+                balance: DBUser.balance - bet,
+                currentcoins: bet * 2,
+              });
+            
+
+
             if(CurrentState.isGameGoing === false){
                 const newWord =  GameEngine.createWord(Dictionary.getWord())
                 UsersManager.setState(msg.author.id, (prev) => ({...prev, word: newWord, isGameGoing: true, lifes: 7}))
@@ -228,11 +282,19 @@ ${animation[CurrentState.lifes - 1]}
 
                 }).then((Chanel) => {
                     GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.CHANEL_CREATED, CurrentUser, CurrentState)
+                    msg.reply(`Ваша игра готова! <#${Chanel.id}>`)
                     Chanel.send("Игра будет происходить в этом канале!")
                     Chanel.send("Длина слова - "+newWord.chars.length)
                     
                     if(isNewUser){
-                        Chanel.send("АБОБА НАПИСАЛ ПРАВИЛА ИГРЫ(ВСЕ В ШОКЕ)!!!")//rules here
+                        Chanel.send(
+                            new MessageEmbed()
+                          .setColor("#E74C3C")
+                          .setTitle("**Информация по игре**")
+                          .setDescription(
+                            "**1. Продолжительность игры: 180 секунд, не успели ввести правильный ответ - вы проиграли\n2. Находясь в данном канале, любое сообщение, написанное вами будет восприниматься, как ответ на вопрос\n3. Вводить ответ нужно СТРОГО 1 буквой русского языка с МАЛЕНЬКОЙ буквы.**"
+                          )
+                        )//rules here
                     }
                     UsersManager.setState(msg.author.id, (prev) => ({...prev, chanelID: Chanel.id}))
                     GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.START, CurrentUser, UsersManager.getState(CurrentUser.Discord_id))
@@ -247,6 +309,7 @@ ${animation[CurrentState.lifes - 1]}
             break;
         }
     });
+    this.client = client
 
     client.login(process.env.BOT_TOKEN)
 
