@@ -32,6 +32,7 @@
     "discord.js": "^12.5.3",
     "dotenv": "^9.0.2",
     "mongoose": "^5.12.12",
+    "mongoose-auto-increment-reworked": "^1.2.1",
     "tsc": "^2.0.3"
   }
 }

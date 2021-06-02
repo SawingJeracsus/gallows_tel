@@ -7,12 +7,32 @@ import Dictionary from './dictionary'
 import {Game, Word} from './game'
 import { HamsterCoinScema } from './Scemas/scema'
 
+const mongoose = require("mongoose");
+const autoIncrement = require("mongoose-auto-increment-reworked");
+
 dotenv.config()
 
 if(!process.env.BOT_TOKEN){
     console.error("Discord token is not defined!")
     process.exit()
 }
+
+mongoose.connect(
+    process.env.DATABASE_URL,
+    {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      useCreateIndex: true,
+      useFindAndModify: false,
+    },
+    (err: any) => {
+      if (err) throw err;
+      console.log("[Database] База данных Mongo успешно подключена.");
+    }
+  );
+autoIncrement.initialize(mongoose.connection);
+  
+
 type UserState = {[key: string]: any, isGameGoing: boolean, word: Word, lifes: number, lastActive: Date, message: string}
 
 class Dumb{
