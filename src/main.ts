@@ -8,7 +8,7 @@ import {Game, Word} from './game'
 import { HamsterCoinScema } from './Scemas/scema'
 
 const mongoose = require("mongoose");
-const autoIncrement = require("mongoose-auto-increment-reworked");
+const {MongooseAutoIncrementID} = require("mongoose-auto-increment-reworked");
 
 dotenv.config()
 
@@ -30,7 +30,7 @@ mongoose.connect(
       console.log("[Database] База данных Mongo успешно подключена.");
     }
   );
-autoIncrement.initialize(mongoose.connection);
+MongooseAutoIncrementID.initialize(mongoose.connection);
   
 
 type UserState = {[key: string]: any, isGameGoing: boolean, word: Word, lifes: number, lastActive: Date, message: string}
@@ -172,6 +172,9 @@ export class GallowsBotInterface{
         
         
         if(msg.channel.id !== process.env.CHANEL){
+            return
+        }
+        if(!DBUser){
             return
         }
         //@ts-ignore
