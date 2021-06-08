@@ -13,8 +13,19 @@ if(!process.env.BOT_TOKEN){
     process.exit()
 }
 
-type UserState = {[key: string]: any, isGameGoing: boolean, word: Word, lifes: number, lastActive: Date, ballance: number, bet: number}
-
+type UserState = {[key: string]: any, isGameGoing: boolean, word: Word, lifes: number, lastActive: Date, ballance: number, bet: number, totalGames: number, wins: number, lastPaymentReciver: string, lastPaymantAmount: number}
+const MOCKSTATE: UserState = {
+    isGameGoing: false,
+    word: new Word('', []),
+    lifes: 7,
+    lastActive: new Date(),
+    ballance: 500,
+    bet: 0,
+    totalGames: 0,
+    wins: 0,
+    lastPaymantAmount: 0,
+    lastPaymentReciver: ''
+}
 class Dumb{
     static readonly path = path.join(__dirname, '../', 'dumb.json')
     getDumb(): DiscordUser[]{
@@ -36,15 +47,10 @@ class Dumb{
     }
 }
 
+
+
 class DiscordUser{
-    public state: UserState = {
-        isGameGoing: false,
-        word: new Word('', []),
-        lifes: 7,
-        lastActive: new Date(),
-        ballance: 500,
-        bet: 0
-    }
+    public state: UserState = MOCKSTATE
     constructor(
         public readonly Discord_id: string,
         public readonly userName: string,
@@ -81,8 +87,17 @@ class UseresColection{
         this.DumbManager.setDumb(this.users)
     }
     getState(tel_id: string): UserState{
+        if(!this.userExists(tel_id)){
+            return MOCKSTATE
+        }
         return this.users.filter( user => user.Discord_id === tel_id)[0].state || false
     }
+    userExists(id: string){
+        for(let user of this.users){
+            if(user.Discord_id === id) return true
+        }
+        return false
+    }   
 }
 
 enum EVENTS {
@@ -92,10 +107,11 @@ enum EVENTS {
     CHANEL_DELETED = 'CHANEL_DELETED',
     MESSAGE = 'MESSAGE',
     WON = 'WON',
-    LOSE = 'LOSE'
+    LOSE = 'LOSE',
+    PAY = 'PAY'
 }
-type GallowBotEvent = 'START' | 'GUESS' | 'CHANEL_CREATED' | 'CHANEL_DELETED' | 'MESSAGE' | 'WON' | 'LOSE'
-type GallowClaback = (user: DiscordUser, state: UserState) => void
+type GallowBotEvent = 'START' | 'GUESS' | 'CHANEL_CREATED' | 'CHANEL_DELETED' | 'MESSAGE' | 'WON' | 'LOSE' | 'PAY'
+type GallowClaback = (user: DiscordUser, state: UserState, client? : Discord.Client) => void
 
 export class GallowsBotInterface{
     private static subcribers: {[key: string]: GallowClaback[]} = {}
@@ -104,10 +120,10 @@ export class GallowsBotInterface{
         //@ts-ignore
         this.subcribers[event] = this.subcribers[event] ? [...this.subcribers[event], callback] : [callback]  
     }
-    static dispatch(event: GallowBotEvent, user: DiscordUser, state: UserState){
+    static dispatch(event: GallowBotEvent, user: DiscordUser, state: UserState, client?: Discord.Client){
         if(this.subcribers[event]){
             this.subcribers[event].forEach((callback) => {
-                callback(user, state)
+                callback(user, state, client)
             })
         }
     }
@@ -121,9 +137,9 @@ export class GallowsBotInterface{
                 if(timeDelta > 180){
                     //неактивний уже 180 секунд
                     msg.guild?.channels.cache.get(state.chanelID)?.delete()
-                    GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.CHANEL_DELETED, user, state)
+                    GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.CHANEL_DELETED, user, state,)
                     GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.LOSE, user, state)
-                    UsersManager.setState(msg.author.id, (prev) => ({...prev, isGameGoing: false}))
+                    UsersManager.setState(msg.author.id, (prev) => ({...prev, isGameGoing: false, bet: 0}))
                     console.log(`${user.userName} game was deleted (time has expired)`);
                     
                 }
@@ -143,11 +159,13 @@ export class GallowsBotInterface{
     })
     
     client.on('message', msg => {
+        // console.log(msg);
+        
         if(!msg) return
         //@ts-ignore
+        
         if(msg.author.id === client.user.id && client) return
         // if(msg.content.split('/').length <= 1) return
-
 
         this.startDeamon(2000, UsersManager, msg)    
         
@@ -156,13 +174,14 @@ export class GallowsBotInterface{
             msg.author.username
         )
         UsersManager.setState(CurrentUser.Discord_id, (prev) => ({...prev, lastActive: new Date()}))
-        const CurrentState = UsersManager.getState(msg.author.id) || {}
+        const CurrentState = UsersManager.getState(msg.author.id) || {}            
         
-        GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.MESSAGE, CurrentUser, CurrentState)
+        
+        GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.MESSAGE, CurrentUser, CurrentState, client)
 
         const commandWithArgs = msg.content.split('/')
         const command = commandWithArgs.length > 1 ? commandWithArgs[1].split(' ')[0] : commandWithArgs      
-        const args = commandWithArgs.length > 1 ? commandWithArgs[1].split(' ').filter((_1, i) => i !== 0) : []      
+        const args = commandWithArgs.length > 1 ? commandWithArgs[1].split(' ').filter((argg, i) => i !== 0 && argg !== '') : []      
         
         if(!command){
             // if()
@@ -170,17 +189,17 @@ export class GallowsBotInterface{
         }
         const guessLogic = (guess: string) => {
             if(!CurrentState.isGameGoing){ return }
-            GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.GUESS, CurrentUser, CurrentState)
+            GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.GUESS, CurrentUser, CurrentState, client)
             try {
                 const word = GameEngine.openLetter(Word.from(CurrentState.word), guess)   
                 UsersManager.setState(msg.author.id, (prev) => ({...prev, word, isGameGoing: !word.isOppened, lifes: CurrentState.lifes + 1 > 7 ? 7 : CurrentState.lifes + 1}))
                 if(word.isOppened){
-                    UsersManager.setState(msg.author.id, (prev) => ({...prev, bet: 0, ballance: (prev.ballance + prev.bet*2) }))
-                    GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.WON, CurrentUser, UsersManager.getState(CurrentUser.Discord_id))
+                    GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.WON, CurrentUser, UsersManager.getState(CurrentUser.Discord_id), client )
+                    UsersManager.setState(msg.author.id, (prev) => ({...prev, bet: 0, ballance: (prev.ballance + prev.bet*2), wins: prev.wins + 1}))
                     msg.reply("Вы угадали слово это: - "+word.text)
                     setTimeout(() => {
                         msg.guild?.channels.cache.get(CurrentState.chanelID)?.delete()
-                        GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.CHANEL_DELETED, CurrentUser, CurrentState)
+                        GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.CHANEL_DELETED, CurrentUser, CurrentState, client)
                     }, 2000)
                     return
                 }
@@ -193,12 +212,12 @@ export class GallowsBotInterface{
 ${animation[CurrentState.lifes - 1]}
 Этой буквы нету. Осталось жизней! - ${CurrentState.lifes - 1}`) 
                 }else{
-                    GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.LOSE, CurrentUser, CurrentState)
+                    GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.LOSE, CurrentUser, CurrentState, client)
                     msg.reply('Вы проиграли! Это было слово! "'+CurrentState.word.word+'"')
                     UsersManager.setState(msg.author.id, (prev) => ({...prev, isGameGoing: false, bet: 0}))
                     setTimeout(() => {
                         msg.guild?.channels.cache.get(CurrentState.chanelID)?.delete()
-                        GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.CHANEL_DELETED, CurrentUser, CurrentState)
+                        GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.CHANEL_DELETED, CurrentUser, CurrentState, client)
                     }, 2000)
                 }
             }            
@@ -209,14 +228,74 @@ ${animation[CurrentState.lifes - 1]}
             guessLogic(msg.content)
             return
         }
+        if(msg.channel.id !== process.env.WORK_CHANEL) return
         
         // if()
         switch(command){
-            case 'start':
-            const isNewUser = UsersManager.softPush(CurrentUser)
+            case 'register':
+                const isNewUser = UsersManager.softPush(CurrentUser)
+                if(!isNewUser){
+                    msg.reply('Ви уже зарегестрированы')
+                }else{
+                    msg.reply('Успешно зарегестрирован')
+                }
+            break;
+            case 'pay':
+                const idRegex = /\<\@\!(.*?)\>/
+                const resultOfParse = args[0].match(idRegex)
+                if(!resultOfParse) {
+                    msg.reply('Вторым параметром должен быть ,отмечений через @, пользователь которoму вы передаёте золотишко!')
+                    return
+                }
+                const id = resultOfParse[1]
+                let amount:number =  0
+                
+                if(!id || !args[1]){
+                    msg.reply("Не валидная запись команды!")
+                    return
+                }
+                
+                
+                try {
+                    amount = parseInt(args[1].trim())
+                } catch (error) {
+                    msg.reply("Не валидная запись суммы!")
+                    return 
+                }
 
-            msg.delete()
-            
+                if(amount <= 0){
+                    msg.reply("Сумма должна бить больше нуля!")
+                    return
+                }
+
+                if(amount >= CurrentState.ballance){
+                    msg.reply("Сумма должна бить меньше нежели у вас есть на счету!")
+                    return
+                }
+                if(CurrentState.totalGames < 3 && CurrentState.wins < 1){
+                    msg.reply("У вас недостаточное количество игр (минимум 3 игры), чтобы осуществлять перевод! ")
+                    return
+                }
+                if(!UsersManager.userExists(id)){
+                    msg.reply("Даный пользователь не зарегестрирован!")
+                    return
+                }
+
+                UsersManager.setState(CurrentUser.Discord_id, (prev) => ({...prev, ballance: prev.ballance - amount, lastPaymentReciver: id, lastPaymantAmount: amount}))
+                UsersManager.setState(id, (prev) => ({...prev, ballance: prev.ballance + amount}))
+                msg.reply('Перевод осуществлён!')
+                GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.PAY, CurrentUser, UsersManager.getState(CurrentUser.Discord_id), client)
+
+            break;
+            case 'balance':
+                msg.reply('Ваш баланс - '+CurrentState.ballance)
+            break;
+            case 'start':
+            msg.delete();
+            if(!UsersManager.userExists(CurrentUser.Discord_id)){
+                msg.reply('Вы не зарегестрированы')
+                return
+            }
             if (!args[0]) {
                 msg.reply("Укажите сумму для начала");
                 return;
@@ -259,8 +338,10 @@ ${animation[CurrentState.lifes - 1]}
                     ],
 
                 }).then((Chanel) => {
-                    GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.CHANEL_CREATED, CurrentUser, CurrentState)
-                    msg.reply(`Ваша игра готова! <#${Chanel.id}>`)
+                    GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.CHANEL_CREATED, CurrentUser, CurrentState, client)
+                    msg.reply(`Ваша игра готова! <#${Chanel.id}>`).then(msg => {
+                        msg.delete({timeout: 60000})
+                    })
                     Chanel.send("Игра будет происходить в этом канале!")
                     Chanel.send("Длина слова - "+newWord.chars.length)
                     
@@ -275,9 +356,9 @@ ${animation[CurrentState.lifes - 1]}
                         )
                     }
                     
-                    UsersManager.setState(msg.author.id, (prev) => ({...prev, chanelID: Chanel.id, bet, ballance: prev.ballance - bet}))
+                    UsersManager.setState(msg.author.id, (prev) => ({...prev, chanelID: Chanel.id, bet, ballance: prev.ballance - bet, totalGames: prev.totalGames + 1}))
 
-                    GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.START, CurrentUser, UsersManager.getState(CurrentUser.Discord_id))
+                    GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.START, CurrentUser, UsersManager.getState(CurrentUser.Discord_id), client)
 
                 })
               }else{
