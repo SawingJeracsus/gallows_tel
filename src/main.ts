@@ -1,4 +1,4 @@
-import Discord, { User, UserManager } from 'discord.js'
+import Discord, { MessageEmbed, User, UserManager } from 'discord.js'
 import dotenv from 'dotenv'
 import fs from 'fs'
 import path from 'path'
@@ -13,7 +13,7 @@ if(!process.env.BOT_TOKEN){
     process.exit()
 }
 
-type UserState = {[key: string]: any, isGameGoing: boolean, word: Word, lifes: number, lastActive: Date}
+type UserState = {[key: string]: any, isGameGoing: boolean, word: Word, lifes: number, lastActive: Date, ballance: number, bet: number}
 
 class Dumb{
     static readonly path = path.join(__dirname, '../', 'dumb.json')
@@ -41,7 +41,9 @@ class DiscordUser{
         isGameGoing: false,
         word: new Word('', []),
         lifes: 7,
-        lastActive: new Date()
+        lastActive: new Date(),
+        ballance: 500,
+        bet: 0
     }
     constructor(
         public readonly Discord_id: string,
@@ -141,6 +143,7 @@ export class GallowsBotInterface{
     })
     
     client.on('message', msg => {
+        if(!msg) return
         //@ts-ignore
         if(msg.author.id === client.user.id && client) return
         
@@ -169,9 +172,10 @@ export class GallowsBotInterface{
             GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.GUESS, CurrentUser, CurrentState)
             try {
                 const word = GameEngine.openLetter(Word.from(CurrentState.word), guess)   
-                UsersManager.setState(msg.author.id, (prev) => ({...prev, word, isGameGoing: !word.isOppened, lifes: CurrentState.lifes + 1 > 7 ? 7 : CurrentState.lifes + 1}))
+                UsersManager.setState(msg.author.id, (prev) => ({...prev, word, isGameGoing: !word.isOppened, lifes: CurrentState.lifes + 1 > 7 ? 7 : CurrentState.lifes + 1, bet: !word.isOppened ? prev.bet : 0, ballance: !word.isOppened ? prev.ballance : prev.bet*2}))
                 if(word.isOppened){
-                    GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.WON, CurrentUser, CurrentState)
+                    
+                    GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.WON, CurrentUser, UsersManager.getState(CurrentUser.Discord_id))
                     msg.reply("Вы угадали слово это: - "+word.text)
                     setTimeout(() => {
                         msg.guild?.channels.cache.get(CurrentState.chanelID)?.delete()
@@ -190,7 +194,7 @@ ${animation[CurrentState.lifes - 1]}
                 }else{
                     GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.LOSE, CurrentUser, CurrentState)
                     msg.reply('Вы проиграли! Это было слово! "'+CurrentState.word.word+'"')
-                    UsersManager.setState(msg.author.id, (prev) => ({...prev, isGameGoing: false}))
+                    UsersManager.setState(msg.author.id, (prev) => ({...prev, isGameGoing: false, bet: 0}))
                     setTimeout(() => {
                         msg.guild?.channels.cache.get(CurrentState.chanelID)?.delete()
                         GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.CHANEL_DELETED, CurrentUser, CurrentState)
@@ -210,6 +214,31 @@ ${animation[CurrentState.lifes - 1]}
             case 'start':
             msg.delete()
             
+            if (!args[0]) {
+                msg.reply("Укажите сумму для начала");
+                return;
+            }
+            let bet: number = 0
+
+            try {
+                bet = parseInt(args[0])
+            } catch (error) {
+                msg.reply("Указаний параметр не являеться числом");
+                return
+            }
+            if (bet < 1) {
+              msg.reply("Укажите значение больше 0");
+              //@ts-ignore
+              console.log(msg.member.id);
+              return;
+            }
+            if(bet > CurrentState.ballance){
+                msg.reply("У вас не хватает средств!");
+                return;
+            }
+  
+              
+  
             if(CurrentState.isGameGoing === false){
                 const newWord =  GameEngine.createWord(Dictionary.getWord())
                 UsersManager.setState(msg.author.id, (prev) => ({...prev, word: newWord, isGameGoing: true, lifes: 7}))
@@ -228,13 +257,23 @@ ${animation[CurrentState.lifes - 1]}
 
                 }).then((Chanel) => {
                     GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.CHANEL_CREATED, CurrentUser, CurrentState)
+                    msg.reply(`Ваша игра готова! <#${Chanel.id}>`)
                     Chanel.send("Игра будет происходить в этом канале!")
                     Chanel.send("Длина слова - "+newWord.chars.length)
                     
                     if(isNewUser){
-                        Chanel.send("АБОБА НАПИСАЛ ПРАВИЛА ИГРЫ(ВСЕ В ШОКЕ)!!!")//rules here
+                        Chanel.send(
+                            new MessageEmbed()
+                          .setColor("#E74C3C")
+                          .setTitle("**Информация по игре**")
+                          .setDescription(
+                            "**1. Продолжительность игры: 180 секунд, не успели ввести правильный ответ - вы проиграли\n2. Находясь в данном канале, любое сообщение, написанное вами будет восприниматься, как ответ на вопрос\n3. Вводить ответ нужно СТРОГО 1 буквой русского языка с МАЛЕНЬКОЙ буквы.**"
+                          )
+                        )
                     }
-                    UsersManager.setState(msg.author.id, (prev) => ({...prev, chanelID: Chanel.id}))
+                    
+                    UsersManager.setState(msg.author.id, (prev) => ({...prev, chanelID: Chanel.id, bet, ballance: prev.ballance - bet}))
+
                     GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.START, CurrentUser, UsersManager.getState(CurrentUser.Discord_id))
 
                 })
