@@ -235,23 +235,40 @@ ${animation[CurrentState.lifes - 1]}
             case 'register':
                 const isNewUser = UsersManager.softPush(CurrentUser)
                 if(!isNewUser){
-                    msg.reply('Ви уже зарегестрированы')
+                    const embeda = new MessageEmbed()
+                    .setColor("RED")
+                    .setTitle("Вы уже зарестрированы")
+                    msg.reply(embeda)
                 }else{
-                    msg.reply('Успешно зарегестрирован')
+                    const embeda = new MessageEmbed()
+                    .setColor("GREEN")
+                    .setTitle("Успешно зарегестрирован")
+                    msg.reply(embeda)
                 }
             break;
             case 'pay':
                 const idRegex = /\<\@\!(.*?)\>/
                 const resultOfParse = args[0].match(idRegex)
                 if(!resultOfParse) {
-                    msg.reply('Вторым параметром должен быть ,отмечений через @, пользователь которoму вы передаёте золотишко!')
+                    const embeda = new MessageEmbed()
+                    .setColor("RED")
+                    .setTitle("/pay [User ping] [CurrentCoin]")
+                    .setDescription(
+                      `**[User ping] - Упоминания пользователя которому вы переводите через @ или <@Discord id>\n [CurrentCoin]- Сума которую вы хотите перевести пользователю**`
+                    );
+                    msg.reply(embeda)
                     return
                 }
                 const id = resultOfParse[1]
                 let amount:number =  0
                 
                 if(!id || !args[1]){
-                    msg.reply("Не валидная запись команды!")
+                    const embeda = new MessageEmbed()
+                    .setColor("RED")
+                    .setTitle("/pay [User ping] [CurrentCoin]")
+                    .setDescription(
+                      `**[User ping] - Упоминания пользователя которому вы переводите через @ или <@Discord id>\n [CurrentCoin]- Сума которую вы хотите перевести пользователю**`);
+                    msg.reply(embeda)
                     return
                 }
                 
@@ -259,31 +276,61 @@ ${animation[CurrentState.lifes - 1]}
                 try {
                     amount = parseInt(args[1].trim())
                 } catch (error) {
-                    msg.reply("Не валидная запись суммы!")
+                    const embeda = new MessageEmbed()
+                    .setColor("RED")
+                    .setTitle("/pay [User ping] [CurrentCoin]")
+                    .setDescription(
+                      `**[User ping] - Упоминания пользователя которому вы переводите через @ или <@Discord id>\n [CurrentCoin]- Сума которую вы хотите перевести пользователю**`);
+                    msg.reply(embeda)
                     return 
                 }
 
                 if(amount <= 0){
-                    msg.reply("Сумма должна бить больше нуля!")
+                    const embeda = new MessageEmbed()
+                    .setColor("RED")
+                    .setTitle("Указаная сумма должна быть польше нуля")
+                    .setDescription(
+                      `**Укажите смуму которая больше нуля**`)
+                    msg.reply(embeda)
                     return
                 }
 
                 if(amount >= CurrentState.ballance){
-                    msg.reply("Сумма должна бить меньше нежели у вас есть на счету!")
+                    const embeda = new MessageEmbed()
+                    .setColor("RED")
+                    .setTitle("У вас недостаточно HamsterCoin")
+                    .setDescription(
+                      `**У вас недостаточно HamsterCoin. Укажите сумму которая у вас имеется**`)
+                    msg.reply(embeda)
                     return
                 }
                 if(CurrentState.totalGames < 3 && CurrentState.wins < 1){
-                    msg.reply("У вас недостаточное количество игр (минимум 3 игры), чтобы осуществлять перевод! ")
+                    const embeda = new MessageEmbed()
+                    .setColor("RED")
+                    .setTitle("У вас нету доступа к переводу HamsterCoin")
+                    .setDescription(
+                      `**Для того чтобы перевести HamsterCoin другому пользователю вам нужно:\n Выиграть 1 игру\n Проиграть 3 игры**`)
+                    msg.reply(embeda)
                     return
                 }
                 if(!UsersManager.userExists(id)){
-                    msg.reply("Даный пользователь не зарегестрирован!")
+                    const embeda = new MessageEmbed()
+                    .setColor("RED")
+                    .setTitle("Ошибка")
+                    .setDescription(
+                      `**Пользователь которому вы хотите перевести HamsterCoin не зарегестрирован в игре "Виселица"**`)
+                    msg.reply(embeda)
                     return
                 }
 
                 UsersManager.setState(CurrentUser.Discord_id, (prev) => ({...prev, ballance: prev.ballance - amount, lastPaymentReciver: id, lastPaymantAmount: amount}))
                 UsersManager.setState(id, (prev) => ({...prev, ballance: prev.ballance + amount}))
-                msg.reply('Перевод осуществлён!')
+                const embeda = new MessageEmbed()
+                .setColor("GREEN")
+                .setTitle("Операция проведена успешно")
+                .setDescription(
+                  `**Перевод осуществлён!**`)
+                msg.reply(embeda)
                 GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.PAY, CurrentUser, UsersManager.getState(CurrentUser.Discord_id), client)
 
             break;
@@ -293,11 +340,21 @@ ${animation[CurrentState.lifes - 1]}
             case 'start':
             msg.delete();
             if(!UsersManager.userExists(CurrentUser.Discord_id)){
-                msg.reply('Вы не зарегестрированы')
+                const embeda = new MessageEmbed()
+                .setColor("RED")
+                .setTitle("Ошибка")
+                .setDescription(
+                  `**Вы не зарестрированы в игре виселица\nВведите: /register**`)
+                msg.reply(embeda)
                 return
             }
             if (!args[0]) {
-                msg.reply("Укажите сумму для начала");
+                const embeda = new MessageEmbed()
+                .setColor("RED")
+                .setTitle("Ошибка")
+                .setDescription(
+                  `**Укажите сумму HamsterCoin на которую хотите сиграть**`)
+                msg.reply(embeda);
                 return;
             }
             let bet: number = 0
@@ -305,17 +362,30 @@ ${animation[CurrentState.lifes - 1]}
             try {
                 bet = parseInt(args[0])
             } catch (error) {
-                msg.reply("Указаний параметр не являеться числом");
+                const embeda = new MessageEmbed()
+                .setColor("RED")
+                .setTitle("Ошибка")
+                .setDescription(
+                  `**Введите: /start [Sum]\n [Sum] - Сума на которую вы хотите сиграть **`)
+                msg.reply(embeda);
                 return
             }
             if (bet < 1) {
-              msg.reply("Укажите значение больше 0");
-              //@ts-ignore
-              console.log(msg.member.id);
+                const embeda = new MessageEmbed()
+                .setColor("RED")
+                .setTitle("Ошибка")
+                .setDescription(
+                  `**Введите число больше нуля**`)
+              msg.reply(embeda);
               return;
             }
             if(bet > CurrentState.ballance){
-                msg.reply("У вас не хватает средств!");
+                const embeda = new MessageEmbed()
+                .setColor("RED")
+                .setTitle("Ошибка")
+                .setDescription(
+                  `**У вас недостаточно средств!**`)
+                msg.reply(embeda);
                 return;
             }
   
