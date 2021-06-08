@@ -12,9 +12,9 @@ GallowsBotInterface.subscribe(GallowsBotInterface.EVENTS.START, (user, state, cl
 
     const embeda = new MessageEmbed()
     .setColor("RED")
-    .setTitle("[LOG] Начало игры в Виселицэ")
+    .setTitle("[LOG] Начало игры в Виселица")
     .setDescription(
-      `**Пользователь: <@!${user.Discord_id}> \nНачал игру в виселица со ставкой: ${state.bet} с словом ${state.word.word}**`
+      `**Пользователь:<@!${user.Discord_id}> \nНачал игру в виселица со ставкой: ${state.bet}\n с словом: ${state.word.word}**`
     )
     const chanel = client.channels.cache.get(process.env.CHANEL_FOR_LOGS as string)
     if(chanel){
@@ -33,7 +33,7 @@ GallowsBotInterface.subscribe(GallowsBotInterface.EVENTS.LOSE, (user, state, cli
     .setColor("RED")
     .setTitle("[LOG] Окончание игры в Виселица пройгрышем")
     .setDescription(
-      `**Пользователь: <@!${user.Discord_id}> \nЗакончил игру в виселица со пройгрышем: ${state.bet}**`
+      `**Пользователь: <@!${user.Discord_id}> \nЗакончил игру в виселица с пройгрышем: ${state.bet}**`
     )
     const chanel = client.channels.cache.get(process.env.CHANEL_FOR_LOGS as string)
     if(chanel){
@@ -52,7 +52,7 @@ GallowsBotInterface.subscribe(GallowsBotInterface.EVENTS.WON, (user, state, clie
     .setColor("RED")
     .setTitle("[LOG] Окончание игры в Виселица победой")
     .setDescription(
-      `**Пользователь: <@!${user.Discord_id}> \nЗакончил игру в виселица со выигрышем: +${state.bet}**`
+      `**Пользователь: <@!${user.Discord_id}> \nЗакончил игру в виселица \n с выигрышем: +${state.bet}**`
     )
     const chanel = client.channels.cache.get(process.env.CHANEL_FOR_LOGS as string)
     if(chanel){
@@ -69,9 +69,9 @@ GallowsBotInterface.subscribe(GallowsBotInterface.EVENTS.PAY, (user, state, clie
 
     const embeda = new MessageEmbed()
     .setColor("RED")
-    .setTitle("[LOG] Перевод Золотишка")
+    .setTitle("[LOG] Совершен перевод")
     .setDescription(
-      `**Пользователь: <@!${user.Discord_id}> \n перевёл пользователю <@!${state.lastPaymentReciver}> сумму  ${state.lastPaymantAmount}**`
+      `**Пользователь: <@!${user.Discord_id}> \n перевёл пользователю: <@!${state.lastPaymentReciver}> \n сумму:  ${state.lastPaymantAmount}**`
     )
     const chanel = client.channels.cache.get(process.env.CHANEL_FOR_LOGS as string)
     if(chanel){
