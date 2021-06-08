@@ -146,14 +146,15 @@ export class GallowsBotInterface{
         if(!msg) return
         //@ts-ignore
         if(msg.author.id === client.user.id && client) return
-        
+        // if(msg.content.split('/').length <= 1) return
+
+
         this.startDeamon(2000, UsersManager, msg)    
         
         const CurrentUser = new DiscordUser(
             msg.author.id,
             msg.author.username
         )
-        const isNewUser = UsersManager.softPush(CurrentUser)
         UsersManager.setState(CurrentUser.Discord_id, (prev) => ({...prev, lastActive: new Date()}))
         const CurrentState = UsersManager.getState(msg.author.id) || {}
         
@@ -212,6 +213,8 @@ ${animation[CurrentState.lifes - 1]}
         // if()
         switch(command){
             case 'start':
+            const isNewUser = UsersManager.softPush(CurrentUser)
+
             msg.delete()
             
             if (!args[0]) {
