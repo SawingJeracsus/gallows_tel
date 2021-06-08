@@ -173,9 +173,9 @@ export class GallowsBotInterface{
             GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.GUESS, CurrentUser, CurrentState)
             try {
                 const word = GameEngine.openLetter(Word.from(CurrentState.word), guess)   
-                UsersManager.setState(msg.author.id, (prev) => ({...prev, word, isGameGoing: !word.isOppened, lifes: CurrentState.lifes + 1 > 7 ? 7 : CurrentState.lifes + 1, bet: !word.isOppened ? prev.bet : 0, ballance: !word.isOppened ? prev.ballance : prev.bet*2}))
+                UsersManager.setState(msg.author.id, (prev) => ({...prev, word, isGameGoing: !word.isOppened, lifes: CurrentState.lifes + 1 > 7 ? 7 : CurrentState.lifes + 1}))
                 if(word.isOppened){
-                    
+                    UsersManager.setState(msg.author.id, (prev) => ({...prev, bet: 0, ballance: (prev.ballance + prev.bet*2) }))
                     GallowsBotInterface.dispatch(GallowsBotInterface.EVENTS.WON, CurrentUser, UsersManager.getState(CurrentUser.Discord_id))
                     msg.reply("Вы угадали слово это: - "+word.text)
                     setTimeout(() => {
