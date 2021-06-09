@@ -247,8 +247,22 @@ ${animation[CurrentState.lifes - 1]}
                 }
             break;
             case 'pay':
+
+                if(!args[0] || !args[1]){
+                    const embeda = new MessageEmbed()
+                    .setColor("RED")
+                    .setTitle("/pay [User ping] [CurrentCoin]")
+                    .setDescription(
+                      `**[User ping] - Упоминания пользователя которому вы переводите через @ или <@Discord id>\n [CurrentCoin]- Сума которую вы хотите перевести пользователю**`
+                    );
+                    msg.reply(embeda)
+                    return
+                }
+
+                
                 const idRegex = /\<\@\!(.*?)\>/
                 const resultOfParse = args[0].match(idRegex)
+                
                 if(!resultOfParse) {
                     const embeda = new MessageEmbed()
                     .setColor("RED")
